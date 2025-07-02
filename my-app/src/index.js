@@ -2,19 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import reportWebVitals from './reportWebVitals';
-import Layout from './components/Layout';
-import { HashRouter, Routes, Route } from 'react-router-dom';
-import Work from './pages/Work';
+import App from './App';
+import TimerOverlay from './components/TimerOverlay';
+
+const params = new URLSearchParams(window.location.search);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <HashRouter>
-    <Routes>
-      <Route path="/" element={<Layout />} />
-      <Route path="/work" element={<Work />} />
-      </Routes>
-    </HashRouter>
+    {params.get('timer') === '1' ? <TimerOverlay /> : <App />}
   </React.StrictMode>
 );
 
