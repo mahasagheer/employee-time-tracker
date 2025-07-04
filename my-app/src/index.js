@@ -10,7 +10,7 @@ const params = new URLSearchParams(window.location.search);
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    {params.get('timer') === '1' ? <TimerOverlay /> : <App />}
+    {params.get('timer') === '1' ? <TimerOverlay hidden={window.electron?.timerHidden} /> : <App />}
   </React.StrictMode>
 );
 

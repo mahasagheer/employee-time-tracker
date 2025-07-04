@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, powerMonitor } = require('electron');
 const url = require('url');
 const path = require('path');
 const fs = require("fs");
@@ -28,40 +28,45 @@ function createGuideWindow() {
         slashes: true,
     });
     guideWindow.loadURL(startUrl);
+   // guideWindow.webContents.openDevTools(); // Open DevTools for debugging
     guideWindow.on('closed', () => { guideWindow = null; });
 }
 
 function createTimerWindow() {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    timerWindow = new BrowserWindow({
-        width: 175,
-        height: 44,
-        x: width - 200,
-        y: height - 64,
-        frame: false,
-        transparent: true,
-        alwaysOnTop: true,
-        resizable: false,
-        skipTaskbar: true,
-        hasShadow: false,
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
-        }
-    });
-    const timerUrl = url.format({
-        pathname: path.join(__dirname, 'my-app/build/index.html'),
-        protocol: 'file',
-        slashes: true
-    }) + '?timer=1';
-    console.log('Loading timer overlay URL:', timerUrl);
-    timerWindow.loadURL(timerUrl);
-    timerWindow.once('ready-to-show', () => {
-        timerWindow.setSize(180, 44);
-        timerWindow.show();
-    });
-    timerWindow.on('closed', () => { timerWindow = null; });
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  const windowWidth = 180; // or your desired width
+  const windowHeight = 32; // or your desired height
+
+  timerWindow = new BrowserWindow({
+    width: windowWidth,
+    height: windowHeight,
+    x: screenWidth - windowWidth, // anchor to right
+    y: screenHeight - windowHeight, // anchor to bottom
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+  const timerUrl = url.format({
+    pathname: path.join(__dirname, 'my-app/build/index.html'),
+    protocol: 'file',
+    slashes: true
+  }) + '?timer=1';
+  console.log('Loading timer overlay URL:', timerUrl);
+  timerWindow.loadURL(timerUrl);
+  timerWindow.once('ready-to-show', () => {
+    timerWindow.setSize(windowWidth, windowHeight);
+    timerWindow.show();
+  });
+  timerWindow.on('closed', () => { timerWindow = null; });
 }
 
 // Helper to get current hour as string (e.g., '09')
@@ -135,9 +140,35 @@ function startHourlyScreenshotScheduler() {
   }, 60 * 60 * 1000); // Every hour
 }
 
+function startIdleMonitor() {
+  let wasInactive = false;
+  setInterval(() => {
+    const idleTime = powerMonitor.getSystemIdleTime();
+    if (idleTime >= 60) { // 1 minute for testing
+      if (!wasInactive) {
+        // Only show overlay if main window exists; do NOT recreate it
+        if (guideWindow) {
+          guideWindow.show();
+          console.log('[DEBUG] Sending show-inactivity-overlay to guideWindow');
+          guideWindow.webContents.send('show-inactivity-overlay', idleTime);
+        }
+        // Do NOT hide timer overlay window
+        if (timerWindow) {
+          timerWindow.webContents.send('inactivity-pause');
+          // timerWindow.hide(); // Removed: keep timer overlay visible
+        }
+        wasInactive = true;
+      }
+    } else {
+      wasInactive = false;
+    }
+  }, 10000); // check every 10 seconds
+}
+
 app.whenReady().then(() => {
   createGuideWindow();
   startHourlyScreenshotScheduler();
+  startIdleMonitor();
 });
 
 ipcMain.on('show-timer-window', () => {
@@ -172,4 +203,11 @@ ipcMain.handle('db:add-employee', (event, employee) => {
 
 ipcMain.handle('db:get-employees', () => {
   return db.prepare('SELECT * FROM Employees').all();
+});
+
+ipcMain.on('inactivity-overlay-dismissed', () => {
+  if (timerWindow) {
+    timerWindow.webContents.send('inactivity-resume');
+    timerWindow.show();
+  }
 });

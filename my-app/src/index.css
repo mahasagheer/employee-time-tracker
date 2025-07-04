@@ -9,6 +9,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: transparent !important;
 }
 
 code {
@@ -17,5 +18,9 @@ code {
 }
 
 html, body, #root {
-  background: transparent !important;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: #f3f4f6;
 }
